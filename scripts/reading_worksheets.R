@@ -46,15 +46,15 @@ data_collection <- data_collection %>%
 
 # intervention needs no changes
 
-# Determine the levels and labels for dev_stage
-dev_stage_levels <- c(1, 2, 3, 4, 5, 6, 7, 8, 9)
-dev_stage_labels <- c("infant", "toddler", "preschooler", "child", "adolescent",
-                      "young adult", "adult", "middle age", "old age")
-
 participants <- participants %>%
   mutate(
-    dev_stage = factor(dev_stage, levels = dev_stage_levels,
-                       labels = dev_stage_labels, ordered = TRUE),
+    dev_stage = factor(
+      dev_stage,
+      levels = 1:9,
+      labels = c("infant", "toddler", "preschooler", "child", "adolescent",
+                 "young adult", "adult", "middle age", "old age"),
+      ordered = TRUE
+    ),
     recruitment = fct_explicit_na(
       factor(recruitment, labels = c("closed community", "open community")),
       na_level = "not specified"
