@@ -313,9 +313,3 @@ technique <- technique %>%
     hci_exp_role2 = HCI_exp_role2
   ) %>%
   select(-c(technique_name, material, notes))
-
-
-
-
-
-

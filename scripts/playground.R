@@ -16,9 +16,77 @@ technique %>%
 
 #------------------------------------------------------------------------------#
 
+mixed_groups <- participants %>%
+  filter(
+    ASD > 0 | is.na(ASD) | HFA > 0 | is.na(HFA) | MFA > 0 | is.na(MFA) |
+      LFA > 0 | is.na(LFA) | severe > 0 | is.na(severe),
+    TD > 0 | is.na(TD) | PDD > 0 | is.na(PDD) | ID > 0 | is.na(ID) |
+      dyslexia > 0 | is.na(dyslexia) | ADHD > 0 | is.na(ADHD) | other > 0 |
+      is.na(other)
+  )
+
+#------------------------------------------------------------------------------#
+
+# Question 1
+
+# Which types of techniques are used with autistics?
+# Check participants data frame: ASD, HFA, MFA, LFA, severe
+
+# paper/group_id's that have autistics
+q1_inter_participants <- participants %>%
+  filter(
+    ASD > 0 | is.na(ASD) | HFA > 0 | is.na(HFA) | MFA > 0 | is.na(MFA) |
+      LFA > 0 | is.na(LFA) | severe > 0 | is.na(severe)
+  ) %>%
+  select(paper_id, group_id) %>%
+  arrange(paper_id, study_id, technique_id, group_id)
+# select(paper_id, group_id, ASD, HFA, MFA, LFA, severe)
+
+# number of groups with which studies are done
+q1_inter_technique <- technique %>%
+  select(paper_id, study_id, technique_id, technique_type, group1, group2,
+         group3, group4, group5, group6, group7) %>%
+  gather(group_id, status, -paper_id, -study_id, -technique_id,
+         -technique_type) %>%
+  filter(status == 1) %>%
+  mutate(group_id = parse_number(group_id)) %>%
+  select(-status) %>%
+  arrange(paper_id, study_id, technique_id, group_id)
+
+
+# %>%
+#   group_by(paper_id, study_id, technique_id) %>%
+#   distinct(.keep_all = TRUE)
+#
+# count() %>%
+# arrange(-n)
+
+q1_answer <- q1_inter_technique %>%
+  semi_join(q1_inter_participants, by = c("paper_id", "group_id")) %>%
+  arrange(paper_id, study_id, technique_id, group_id)
+
+View(q1_answer)
+View(table(q1_answer$technique_type))
+
+#------------------------------------------------------------------------------#
+
+# Question 2
+#
+# Which techniques are used with participants?
+
+
+
+
+
+
+
+#------------------------------------------------------------------------------#
+
 # Querying two tables at the same time:
 # 1. getting info from technique
 # 2. using it to get the required info from participants
+
+library(stringr)
 
 test <- technique %>%
   filter(
@@ -34,20 +102,65 @@ test <- technique %>%
   mutate(group_id = as.integer(str_sub(group_id, -1, -1)))
 
 
-View(
-  participants %>%
-    semi_join(test, by = c("paper_id", "group_id"))
-)
+participants_test <- participants %>%
+  semi_join(test, by = c("paper_id", "group_id"))
 
 
 
 #------------------------------------------------------------------------------#
 
 technique <- gs_read(ss = analysis_sheet, ws = "technique", skip = 1,
-                     col_names = TRUE, n_max = 210)
+                     col_names = TRUE, n_max = 208)
 
 participants <- gs_read(ss = analysis_sheet, ws = "participants", skip = 1,
-                        col_names = TRUE, n_max = 130)
+                        col_names = TRUE, n_max = 128)
 
 #------------------------------------------------------------------------------#
 
+# check for duplicates
+technique %>%
+  group_by(paper_id, study_id, technique_id) %>%
+  filter(n() > 1) %>%
+  select(1:4)
+
+
+#------------------------------------------------------------------------------#
+
+participants %>%
+  filter(
+    ASD > 0 | is.na(ASD) | HFA > 0 | is.na(HFA) | MFA > 0 | is.na(MFA) |
+      LFA > 0 | is.na(LFA) | severe > 0 | is.na(severe) | TD > 0 | is.na(TD) |
+      PDD > 0 | is.na(PDD) | ID > 0 | is.na(ID) | dyslexia > 0 |
+      is.na(dyslexia) | ADHD > 0 | is.na(ADHD) | other > 0 | is.na(other)
+  ) %>%
+  select(paper_id, group_id)
+
+
+sd1_participants <- participants %>%
+  filter(paper_id == "SD1")
+sd1_technique <- technique %>%
+  filter(paper_id == "SD1")
+
+
+
+technique %>%
+  filter(group1 == 1 | group2 == 1 | group3 == 1 | group4 == 1 | group5 == 1 |
+           group6 == 1 | group7 == 1) %>%
+  select(technique_type) %>%
+  table()
+
+View(
+  technique %>%
+    select(paper_id, study_id, technique_id, technique_type, group1, group2,
+           group3, group4, group5, group6, group7) %>%
+    gather(group_id, status, -paper_id, -study_id, -technique_id,
+           -technique_type) %>%
+    filter(status == 1) %>%
+    mutate(group_id = parse_number(group_id)) %>%
+    select(-status) %>%
+    arrange(paper_id, group_id)
+)
+
+q1_answer %>%
+  group_by(paper_id, study_id, technique_id, group_id) %>%
+  filter(n() > 1)

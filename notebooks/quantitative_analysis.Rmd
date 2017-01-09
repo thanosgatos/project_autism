@@ -1,0 +1,122 @@
+---
+title: "Quantitative Analysis"
+output: html_notebook
+---
+
+```{r include = FALSE}
+knitr::opts_chunk$set(message = FALSE)
+```
+
+```{r, echo = FALSE}
+# Loading necessary packages
+library(tidyverse)
+library(stringr)
+library(forcats)
+library(knitr)
+# library(DT)
+
+# Setting global options
+options(digits = 4)
+```
+
+**Note:** In case you're not interested in the code written for the analysis, feel free to use the "Code" drop-down menu in the top-right corner and select "Hide All Code". Furthermore, the code used to produce the tables is not displayed by default (set by us).
+
+Let's start by getting some first understanding of our data. We will look at each of our tables, one by one, and get some very basic statistics from them.
+
+# Data Collection
+
+Let's start by having a look at who is usually the data collector.
+
+```{r}
+data_collector_count <- data_collection %>% 
+  select(data_collector) %>% 
+  group_by(data_collector) %>% 
+  count() %>% 
+  arrange(-n)
+```
+
+```{r, echo = FALSE, results = "asis"}
+kable(
+  data_collector_count,
+  caption = "Data Collectors",
+  col.names = c("Data Collector", "Frequency")
+)
+```
+
+Let's try visualizing this.
+
+```{r}
+data_collection %>% 
+  group_by(data_collector) %>% 
+  ggplot() +
+  geom_bar(aes(x = data_collector))
+```
+
+
+Now, coming to the different ways of collecting the data, let's have a look at the number of times each collection menthod is used.
+
+Let's have a look at the type of methods used first.
+
+```{r}
+collection_methods <- data_collection %>% 
+  select(-c(paper_id, study_id, technique_id, data_collector)) %>% 
+  colSums()
+
+collection_methods <- tibble(method = names(collection_methods), 
+                             frequency = collection_methods)
+
+collection_methods_cat <- collection_methods %>% 
+  filter(method %in% c("qualitative", "quantitative", "mixed"))
+```
+
+```{r, echo = FALSE, results = "asis"}
+kable(
+  collection_methods_cat, 
+  caption = "Collection Methods Types Usage",
+  col.names = c("Method Type", "Frequency")
+)
+```
+
+Now, let's see which methoods are actually used, sorted from the most frequently used to the least frequently used.
+
+```{r}
+collection_methods_ind <- collection_methods %>%
+  filter(!method %in% c("qualitative", "quantitative", "mixed")) %>% 
+  arrange(-frequency)
+```
+
+```{r, echo = FALSE, results = "asis"}
+kable(
+  collection_methods_ind, 
+  caption = "Collection Methods Most Frequently used",
+  col.names = c("Method", "Frequency")
+)
+```
+
+Now let's take a different approach. 
+
+```{r}
+data_collection_meth <- data_collection %>% 
+  mutate(
+    qualitative = ifelse(mixed == 1, 0, qualitative),
+    quantitative = ifelse(mixed == 1, 0, quantitative)
+  ) %>% 
+  gather(method, status, -c(paper_id, study_id, technique_id, data_collector,
+                            qualitative, quantitative, mixed)) %>% 
+  filter(status == 1) %>% 
+  select(-status) %>% 
+  gather(method_type, status, -c(paper_id, study_id, technique_id, 
+                                 data_collector, method)) %>% 
+  filter(status == 1) %>% 
+  select(paper_id, study_id, technique_id, data_collector, method_type, method,
+         -status) 
+
+ggplot(data_collection_meth) + 
+  geom_bar(mapping = aes(x = method)) + 
+  scale_x_discrete(limits = , drop = FALSE) +
+  theme(axis.text.x = element_text(angle = 90))
+
+# change method and method type to factors in data_collection_meth
+
+```
+
