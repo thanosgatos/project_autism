@@ -109,11 +109,17 @@ participants_test <- participants %>%
 
 #------------------------------------------------------------------------------#
 
+platform <- gs_read(ss = analysis_sheet, ws = "platform", skip = 1,
+                           col_names = TRUE, n_max = 95)
+
+data_collection <- gs_read(ss = analysis_sheet, ws = "data_collection", skip = 1,
+                           col_names = TRUE, n_max = 248)
+
 technique <- gs_read(ss = analysis_sheet, ws = "technique", skip = 1,
                      col_names = TRUE, n_max = 208)
 
 participants <- gs_read(ss = analysis_sheet, ws = "participants", skip = 1,
-                        col_names = TRUE, n_max = 128)
+                        col_names = TRUE, n_max = 154, dec = ",")
 
 #------------------------------------------------------------------------------#
 
@@ -122,6 +128,7 @@ technique %>%
   group_by(paper_id, study_id, technique_id) %>%
   filter(n() > 1) %>%
   select(1:4)
+
 
 
 #------------------------------------------------------------------------------#
@@ -164,3 +171,4 @@ View(
 q1_answer %>%
   group_by(paper_id, study_id, technique_id, group_id) %>%
   filter(n() > 1)
+

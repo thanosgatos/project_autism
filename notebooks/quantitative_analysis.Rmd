@@ -21,7 +21,7 @@ options(digits = 4)
 
 **Note:** In case you're not interested in the code written for the analysis, feel free to use the "Code" drop-down menu in the top-right corner and select "Hide All Code". Furthermore, the code used to produce the tables is not displayed by default (set by us).
 
-Let's start by getting some first understanding of our data. We will look at each of our tables, one by one, and get some very basic statistics from them.
+Let's start by getting some first understanding of our data. We will look at each of our tables, one by one, and get some very basic statistics from them, mailnly what is being used/done most frequently in the papers included in the study.
 
 # Data Collection
 
@@ -29,6 +29,10 @@ Let's start by having a look at who is usually the data collector.
 
 ```{r}
 data_collector_count <- data_collection %>% 
+  # mutate(
+  #   data_collector = fct_explicit_na(factor(data_collector), 
+  #                                    na_level = "not specified")
+  # ) %>% 
   select(data_collector) %>% 
   group_by(data_collector) %>% 
   count() %>% 
@@ -46,12 +50,37 @@ kable(
 Let's try visualizing this.
 
 ```{r}
-data_collection %>% 
-  group_by(data_collector) %>% 
-  ggplot() +
-  geom_bar(aes(x = data_collector))
+data_collectors_temp <- data_collection %>% 
+  mutate(
+    data_collector = factor(data_collector, 
+                            levels = names(sort(table(data_collector), 
+                                                decreasing = TRUE)),
+                            exclude = NULL),
+    data_collector = fct_explicit_na(factor(data_collector), 
+                                     na_level = "not specified"),
+    # Creating a new var "collector_type" to plot
+    collector_type = ifelse(
+      data_collector %in% c("res1", "res2"),
+      "researcher",
+      ifelse(
+        data_collector %in% c("therapist", "teacher", "parent", "other", 
+                              "caregiver", "HCI_exp"), 
+        "actor",
+        "not specified"
+      )
+    ),
+    collector_type = factor(collector_type, 
+                            levels = c("researcher", "actor", "not specified"))
+  )
+
+ggplot(data_collectors_temp) +
+  geom_bar(aes(data_collector))
+
+ggplot(data_collectors_temp) +
+  geom_bar(aes(collector_type))
 ```
 
+**Note:** "not specified" in the graph above is either "researcher" not explicitly specified or the data were collected by some system or the product itself.
 
 Now, coming to the different ways of collecting the data, let's have a look at the number of times each collection menthod is used.
 
@@ -93,30 +122,193 @@ kable(
 )
 ```
 
-Now let's take a different approach. 
+Now let's take a different approach. Let us try visualizing what is actually going on.
 
 ```{r}
 data_collection_meth <- data_collection %>% 
+  # Set qualitative/quantitative = 0, when mixed = 1
   mutate(
     qualitative = ifelse(mixed == 1, 0, qualitative),
     quantitative = ifelse(mixed == 1, 0, quantitative)
   ) %>% 
+  # Create a "method" variable and a "status" that indicates whether a method is 
+  # actually used for a specific paper/study/technique_id
   gather(method, status, -c(paper_id, study_id, technique_id, data_collector,
-                            qualitative, quantitative, mixed)) %>% 
+                            qualitative, quantitative, mixed)) %>%
+  # Transform "method" to factor here to keep ALL levels
+  mutate(
+    method = factor(method, levels = names(table(method)))
+  ) %>% 
+  # Keep only those that are used and drop the "status"
   filter(status == 1) %>% 
   select(-status) %>% 
+  # Create a "method_type" variable and a "status" that indicates whether it is 
+  # actually used for a specific paper/study/technique_id
   gather(method_type, status, -c(paper_id, study_id, technique_id, 
                                  data_collector, method)) %>% 
+  # Transform "method_type" to factor here to keep ALL levels
+  mutate(method_type = factor(method_type)) %>% 
+  # Keep only those that are used and drop the "status"
   filter(status == 1) %>% 
   select(paper_id, study_id, technique_id, data_collector, method_type, method,
-         -status) 
+         -status) %>% 
+  # Transform "method" and "method_type" to factor again, in order to sort their 
+  # levels according to the counts
+  mutate(
+    method_type = factor(method_type, levels = names(sort(table(method_type), 
+                                                          decreasing = TRUE))),
+    method = factor(method, levels = names(sort(table(method), 
+                                                decreasing = TRUE)))
+  )
 
+# Plot "method"
 ggplot(data_collection_meth) + 
-  geom_bar(mapping = aes(x = method)) + 
-  scale_x_discrete(limits = , drop = FALSE) +
-  theme(axis.text.x = element_text(angle = 90))
+  geom_bar(mapping = aes(method)) + 
+  scale_x_discrete(drop = FALSE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-# change method and method type to factors in data_collection_meth
 
 ```
+
+Here, we have an overview of the methods used the most.
+
+```{r}
+# PLot "method_type"
+
+# ggplot(data_collection_meth) +
+#   geom_bar(aes(method_type))
+
+# The above is wrong: we're counting methods
+# Try the following:
+data_collection_meth %>% 
+  group_by(paper_id, study_id, technique_id) %>% 
+  distinct(.keep_all = TRUE) %>% 
+  ggplot() +
+  geom_bar(aes(method_type))
+```
+
+As we did above, here, we have a look at the types of methods used the most.
+
+
+
+# Design
+
+Let's now have a look at the kind of product and/or service most oftened designed.
+
+```{r}
+design_type <- design %>% 
+  gather(product, status, -paper_id) %>% 
+  mutate(product = factor(product, levels = names(table(product)))) %>% 
+  filter(status == 1) %>% 
+  select(-status) %>% 
+  mutate(
+    product = factor(product, levels = names(sort(table(product), 
+                                                  decreasing = TRUE)))
+  ) %>% 
+  arrange(paper_id)
+
+ggplot(design_type) +
+  geom_bar(aes(product)) +
+  scale_x_discrete(drop = FALSE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+
+# Intervention
+
+The interventions we observed are as follows:
+
+```{r}
+intervention_temp <- intervention %>% 
+  select(-method) %>% 
+  gather(intervention_type, status, -paper_id) %>% 
+  mutate(
+    intervention_type = factor(intervention_type, 
+                               levels = names(table(intervention_type)))
+  ) %>% 
+  filter(status == 1) %>% 
+  select(-status) %>% 
+  mutate(
+    intervention_type = factor(
+      intervention_type, 
+      levels = names(sort(table(intervention_type), decreasing = TRUE))
+    )
+  ) %>% 
+  arrange(paper_id)
+
+ggplot(intervention_temp) +
+  geom_bar(aes(intervention_type)) +
+  scale_x_discrete(drop = FALSE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+**Note:** We will need to check what the picture is when we group the different kinds of interventions together.
+
+
+
+# Participants
+
+```{r}
+participants_temp <- participants %>% 
+  gather(diagnosis, num_diagnosis, c(ASD:other)) %>% 
+  mutate(
+    diagnosis = factor(diagnosis, levels = names(table(diagnosis))),
+    diagnosis_type = ifelse(
+      diagnosis %in% c("ASD", "HFA", "MFA", "LFA", "PDD", "severe"),
+      "ASD",
+      "non-ASD"
+    ),
+    diagnosis_type = factor(diagnosis_type, levels = c("ASD", "non-ASD"))
+  ) %>% 
+  filter(num_diagnosis > 0 | is.na(num_diagnosis)) %>% 
+  arrange(paper_id, group_id)
+
+participants_diagnosis <- participants_temp %>% 
+  select(paper_id, group_id, diagnosis_type, diagnosis, num_diagnosis)
+
+participants_info <- participants %>% 
+  select(paper_id, group_id, male:recruitment)
+```
+
+Let's have a look at the number of the participants' groups (identified as paper_id/group_id) that include autistic people, comared to the groups that only have non-autistic people.
+
+```{r}
+participants_diagnosis %>% 
+  group_by(paper_id, group_id) %>% 
+  ggplot() + 
+  geom_bar(aes(diagnosis_type))
+```
+
+Note that some of the groups have both autistic and non-autistic participants. Therefore, the counts in the graph above don't add up to the number of groups we have, since we count those separately.
+
+# Platform
+
+Similarly to what we've been doing so far, we are interested in the frequency in which different platforms are used.
+
+```{r}
+platform_temp <- platform %>% 
+  gather(platform_type, status, -paper_id) %>% 
+  mutate(
+    platform_type = factor(platform_type, levels = names(table(platform_type)))
+  ) %>% 
+  filter(status == 1) %>% 
+  select(-status) %>% 
+  mutate(
+    platform_type = factor(
+      platform_type,
+      levels = names(sort(table(platform_type), decreasing = TRUE))
+    )
+  ) %>% 
+  arrange(paper_id)
+
+ggplot(platform_temp) +
+  geom_bar(aes(platform_type)) +
+  scale_x_discrete(drop = FALSE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+
+# Technique
 
