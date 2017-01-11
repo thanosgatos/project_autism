@@ -59,6 +59,81 @@ participants %>%
 
 #--- participants ---#
 
+#Checking number of diagnosis and diagnosis_type per paper/group
+View(
+  participants_temp %>%
+    group_by(paper_id, group_id) %>%
+    summarise(
+      n_diag = n_distinct(diagnosis),
+      n_type = n_distinct(diagnosis_type)
+    )
+)
+
+#creating a mixed diagnosis_type
+participants_temp %>%
+  left_join(participants_mixed_index, by = c("paper_id", "group_id"))
+
+View(
+  participants_temp %>%
+    left_join(participants_mixed_index, by = c("paper_id", "group_id"))
+)
+
+View(
+  participants_temp %>%
+    left_join(participants_mixed_index, by = c("paper_id", "group_id")) %>%
+    mutate(
+      diagnosis_type = ifelse(diagnosis_mixed == 1, "mixed", diagnosis_type)
+    )
+)
+
+
+participants_temp %>%
+  group_by(paper_id, group_id) %>%
+  select(paper_id, group_id, diagnosis, diagnosis_type, diagnosis_mixed) %>%
+  distinct(.keep_all = TRUE) %>%
+  select(-diagnosis, - diagnosis_mixed)
+
+
+# What is the difference?
+ggplot(participants_diagnosis) +
+  geom_bar(aes(diagnosis_type))
+
+participants_diagnosis %>%
+  group_by(paper_id, group_id) %>%
+  ggplot() +
+  geom_bar(aes(diagnosis_type))
+
+participants_diagnosis %>%
+  group_by(paper_id, group_id)
+
+## We have 152 combos of paper/group
+
+
+# Check for multiple entries per paper/group for diagnosis_type
+participants_temp %>%
+  group_by(paper_id, group_id) %>%
+  summarise(n_types = n_distinct(diagnosis_type)) %>%
+  filter(n_types > 1)
+
+# Check for multiple entries per paper/group for diagnosis
+yy <- participants_temp %>%
+  group_by(paper_id, group_id) %>%
+  summarise(n_diagnosis = n_distinct(diagnosis)) %>%
+  filter(n_diagnosis > 1) %>%
+  left_join(
+    participants_temp %>%
+      group_by(paper_id, group_id) %>%
+      summarise(n_types = n_distinct(diagnosis_type)) %>%
+      filter(n_types > 1),
+    by = c("paper_id", "group_id")
+  ) %>%
+  filter(!is.na(n_types))
+
+## Check the results
+
+
+
+
 # How many participants' groups have autistics or not?
 z <- participants_temp %>%
   group_by(paper_id, group_id) %>%
@@ -73,6 +148,7 @@ participants %>% distinct() %>% nrow()
 participants %>%
   filter(ASD == 0 & HFA == 0 & MFA == 0 & LFA == 0 & severe == 0 & TD == 0 &
            PDD == 0 & ID == 0 & dyslexia == 0 & ADHD == 0 & other == 0)
+## IEEE3 -- We should check this paper again!
 
 w <- participants_diagnosis %>%
   group_by(paper_id, group_id)
@@ -100,3 +176,139 @@ participants_diagnosis %>%
   filter(n() > 1) %>%
   summarise(n = n()) %>%
   arrange(-n)
+
+
+#------------------------------------------------------------------------------#
+
+#--- data_collection ---#
+
+
+data_collection_meth %>%
+  group_by(paper_id, study_id, technique_id)
+
+data_collection_meth %>%
+  group_by(paper_id, study_id, technique_id) %>%
+  distinct(.keep_all = TRUE)
+
+View(
+  data_collection_meth %>%
+    group_by(paper_id, study_id, technique_id) %>%
+    filter(n() >1)
+)
+
+# The sum of the method counts
+z <- data_collection_meth %>%
+  group_by(method) %>%
+  count()
+sum(z$n)
+
+
+# Check if any paper/study has more than 1 method_type
+data_collection_meth %>%
+  group_by(paper_id, study_id) %>%
+  summarise(n = n_distinct(method_type)) %>%
+  filter(n > 1)
+
+data_collection_meth %>%
+  group_by()
+
+# Check if any paper/study/technique/method has duplicates
+data_collection_meth %>%
+  group_by(paper_id, study_id, technique_id, method) %>%
+  filter(n() > 1)
+
+# Keep only distinct paper/study/technique/method
+data_collection_meth %>%
+  group_by(paper_id, study_id, technique_id, method) %>%
+  distinct(.keep_all = TRUE)
+
+# The count is 241 - NOT 242!
+data_collection_meth %>%
+  group_by(paper_id, study_id, technique_id, method) %>%
+  distinct(.keep_all = TRUE) %>%
+  ungroup() %>%
+  group_by(method) %>%
+  count() %>% arrange(-n)
+
+# Check if any paper/study/technique has multiple method_type -> NO!
+data_collection_meth %>%
+  group_by(paper_id, study_id, technique_id) %>%
+  summarise(types = n_distinct(method_type)) %>%
+  filter(types > 1)
+
+data_collection_meth %>%
+  group_by(paper_id, study_id, technique_id) %>%
+  distinct(.keep_all = TRUE)
+
+
+# Number of data collectors per paper/study/technique
+data_collection %>%
+  group_by(paper_id, study_id, technique_id) %>%
+  filter(n() > 1)
+
+# paper/study/technique with multiple lines
+View(
+  data_collection %>%
+    group_by(paper_id, study_id, technique_id) %>%
+    filter(n() > 1)
+)
+## Marked pairs of lines in data_collection WS to be checked
+
+View(
+  data_collection %>%
+    group_by(paper_id, study_id, technique_id) %>%
+    summarize(n_collectors = n_distinct(data_collector)) %>%
+    filter(n_collectors > 1)
+)
+
+data_collectors_temp %>%
+  group_by(paper_id, study_id, technique_id, data_collector) %>%
+  distinct(.keep_all = TRUE) %>%
+  ungroup() %>%
+  group_by(data_collector) %>%
+  count()
+
+
+#------------------------------------------------------------------------------#
+
+#--- design ---#
+
+# Are there any papers with NO product?
+product_names <- names(design)[-1]
+
+design %>%
+  filter(
+    app == 0 & program == 0 & interface == 0 & game == 0 & serious_game == 0 &
+      social_network == 0 & virtual_character == 0 & schedule == 0 &
+      experience == 0 & service == 0 & algorithm == 0 & data_struct == 0 &
+      data_viz == 0 & toy == 0 & puzzle == 0 & furniture == 0 &
+      environment == 0 & other == 0
+  )
+## YES! -> 7
+
+# Number of "product" from all papers
+design %>%
+  select(-paper_id) %>%
+  colSums() %>%
+  sum()
+## Should be the same as the num of rows of design_type - OK!
+
+
+#------------------------------------------------------------------------------#
+
+#--- intervention ---#
+
+# I need Doa to check the cols (is method wrongly placed here?) and group vars
+
+# Check whether there are papers with NO intervention
+x <- intervention %>%
+  select(-c(paper_id, method)) %>%
+  rowSums()
+sum(x == 0)
+## 13 papers
+## their indices are:
+which(x == 0)
+
+View(intervention[which(x == 0), ])
+## All, apart from IEEE3, have method = 1. IEEE3 has ALL zeros. Corrected!
+

@@ -307,9 +307,4 @@ technique <- technique %>%
       labels = c("one-shot", "longitudinal")
     )
   ) %>%
-  # rename(
-  #   hci_exp = HCI_exp,
-  #   hci_exp_role1 = HCI_exp_role1,
-  #   hci_exp_role2 = HCI_exp_role2
-  # ) %>%
   select(-c(technique_name, material, notes))

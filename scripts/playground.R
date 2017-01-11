@@ -109,17 +109,27 @@ participants_test <- participants %>%
 
 #------------------------------------------------------------------------------#
 
-platform <- gs_read(ss = analysis_sheet, ws = "platform", skip = 1,
-                           col_names = TRUE, n_max = 95)
+# bibliography <- gs_read(ss = analysis_sheet, ws = "bibliography", skip = 1,
+#                         col_names = TRUE, n_max = 154)
 
 data_collection <- gs_read(ss = analysis_sheet, ws = "data_collection", skip = 1,
-                           col_names = TRUE, n_max = 248)
+                           col_names = TRUE, n_max = 247)
 
-technique <- gs_read(ss = analysis_sheet, ws = "technique", skip = 1,
-                     col_names = TRUE, n_max = 208)
+design <- gs_read(ss = analysis_sheet, ws = "design", skip = 1,
+                        col_names = TRUE, n_max = 91)
+
+intervention <- gs_read(ss = analysis_sheet, ws = "intervention", skip = 1,
+                    col_names = TRUE, n_max = 93)
 
 participants <- gs_read(ss = analysis_sheet, ws = "participants", skip = 1,
-                        col_names = TRUE, n_max = 154, dec = ",")
+                        col_names = TRUE, n_max = 154)
+
+platform <- gs_read(ss = analysis_sheet, ws = "platform", skip = 1,
+                    col_names = TRUE, n_max = 95)
+
+technique <- gs_read(ss = analysis_sheet, ws = "technique", skip = 1,
+                     col_names = TRUE, n_max = 247)
+
 
 #------------------------------------------------------------------------------#
 
@@ -129,7 +139,9 @@ technique %>%
   filter(n() > 1) %>%
   select(1:4)
 
-
+data_collection_meth %>%
+  group_by(paper_id, study_id, technique_id) %>%
+  filter(n() >1)
 
 #------------------------------------------------------------------------------#
 

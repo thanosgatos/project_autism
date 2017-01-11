@@ -28,28 +28,6 @@ Let's start by getting some first understanding of our data. We will look at eac
 Let's start by having a look at who is usually the data collector.
 
 ```{r}
-data_collector_count <- data_collection %>% 
-  # mutate(
-  #   data_collector = fct_explicit_na(factor(data_collector), 
-  #                                    na_level = "not specified")
-  # ) %>% 
-  select(data_collector) %>% 
-  group_by(data_collector) %>% 
-  count() %>% 
-  arrange(-n)
-```
-
-```{r, echo = FALSE, results = "asis"}
-kable(
-  data_collector_count,
-  caption = "Data Collectors",
-  col.names = c("Data Collector", "Frequency")
-)
-```
-
-Let's try visualizing this.
-
-```{r}
 data_collectors_temp <- data_collection %>% 
   mutate(
     data_collector = factor(data_collector, 
@@ -71,7 +49,11 @@ data_collectors_temp <- data_collection %>%
     ),
     collector_type = factor(collector_type, 
                             levels = c("researcher", "actor", "not specified"))
-  )
+  ) %>% 
+  # Keep only unique combinations of paper/study/technique/data_collector
+  group_by(paper_id, study_id, technique_id, data_collector) %>% 
+  distinct(.keep_all = TRUE) %>% 
+  ungroup()
 
 ggplot(data_collectors_temp) +
   geom_bar(aes(data_collector))
@@ -82,47 +64,33 @@ ggplot(data_collectors_temp) +
 
 **Note:** "not specified" in the graph above is either "researcher" not explicitly specified or the data were collected by some system or the product itself.
 
+Let's have a look at the actual values:
+
+```{r, echo = FALSE, results = "asis"}
+kable(
+  data_collectors_temp %>% 
+    group_by(data_collector) %>% 
+    count(),
+  caption = "Data Collectors",
+  col.names = c("Data Collector", "Frequency")
+)
+
+```
+
+```{r, echo = FALSE, results = "asis"}
+
+kable(
+  data_collectors_temp %>% 
+    group_by(collector_type) %>% 
+    count(),
+  caption = "Types of Data Collectors",
+  col.names = c("Data Collector Type", "Frequency")
+)
+```
+
 Now, coming to the different ways of collecting the data, let's have a look at the number of times each collection menthod is used.
 
-Let's have a look at the type of methods used first.
-
-```{r}
-collection_methods <- data_collection %>% 
-  select(-c(paper_id, study_id, technique_id, data_collector)) %>% 
-  colSums()
-
-collection_methods <- tibble(method = names(collection_methods), 
-                             frequency = collection_methods)
-
-collection_methods_cat <- collection_methods %>% 
-  filter(method %in% c("qualitative", "quantitative", "mixed"))
-```
-
-```{r, echo = FALSE, results = "asis"}
-kable(
-  collection_methods_cat, 
-  caption = "Collection Methods Types Usage",
-  col.names = c("Method Type", "Frequency")
-)
-```
-
-Now, let's see which methoods are actually used, sorted from the most frequently used to the least frequently used.
-
-```{r}
-collection_methods_ind <- collection_methods %>%
-  filter(!method %in% c("qualitative", "quantitative", "mixed")) %>% 
-  arrange(-frequency)
-```
-
-```{r, echo = FALSE, results = "asis"}
-kable(
-  collection_methods_ind, 
-  caption = "Collection Methods Most Frequently used",
-  col.names = c("Method", "Frequency")
-)
-```
-
-Now let's take a different approach. Let us try visualizing what is actually going on.
+We will have a look at both the type of methods used and at which methoods are actually used, sorted from the most frequently used to the least frequently used. Let us try visualizing what is actually going on.
 
 ```{r}
 data_collection_meth <- data_collection %>% 
@@ -152,6 +120,10 @@ data_collection_meth <- data_collection %>%
   filter(status == 1) %>% 
   select(paper_id, study_id, technique_id, data_collector, method_type, method,
          -status) %>% 
+  # Keep unique paper/study/technique/method combos
+  group_by(paper_id, study_id, technique_id, method) %>%
+  distinct(.keep_all = TRUE) %>% 
+  ungroup() %>% 
   # Transform "method" and "method_type" to factor again, in order to sort their 
   # levels according to the counts
   mutate(
@@ -159,7 +131,8 @@ data_collection_meth <- data_collection %>%
                                                           decreasing = TRUE))),
     method = factor(method, levels = names(sort(table(method), 
                                                 decreasing = TRUE)))
-  )
+  ) %>% 
+  arrange(paper_id, study_id, technique_id)
 
 # Plot "method"
 ggplot(data_collection_meth) + 
@@ -170,7 +143,19 @@ ggplot(data_collection_meth) +
 
 ```
 
-Here, we have an overview of the methods used the most.
+Here is a table with the actual values:
+
+```{r, echo = FALSE, results = "asis"}
+kable(
+  data_collection_meth %>%
+  group_by(method) %>% 
+  count(),
+  caption = "Methods Usage Frequency",
+  col.names = c("Method", "Frequency")
+)
+```
+
+Now, let us have a look at the types of methods used the most.
 
 ```{r}
 # PLot "method_type"
@@ -180,14 +165,27 @@ Here, we have an overview of the methods used the most.
 
 # The above is wrong: we're counting methods
 # Try the following:
-data_collection_meth %>% 
+data_collection_meth_types <- data_collection_meth %>% 
   group_by(paper_id, study_id, technique_id) %>% 
-  distinct(.keep_all = TRUE) %>% 
-  ggplot() +
+  distinct(.keep_all = TRUE) %>%
+  select(-c(data_collector, method))
+
+ggplot(data_collection_meth_types) +
   geom_bar(aes(method_type))
 ```
 
-As we did above, here, we have a look at the types of methods used the most.
+As we did above, hereis a table with the actual values:
+
+```{r, echo = FALSE, results = "asis"}
+kable(
+  data_collection_meth_types %>% 
+    group_by(method_type) %>% 
+    count(),
+  caption = "Method Types Usage Frequency",
+  col.names = c("Method Type", "Frequency")
+)
+```
+
 
 
 
@@ -213,6 +211,17 @@ ggplot(design_type) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
+Here are the actual values:
+
+```{r, echo = FALSE, results = "asis"}
+kable(
+  design_type %>% 
+    group_by(product) %>% 
+    count(), 
+  caption = "Product Type Usage Frequency",
+  col.names = c("Product", "Frequency")
+)
+```
 
 
 # Intervention
@@ -223,12 +232,16 @@ The interventions we observed are as follows:
 intervention_temp <- intervention %>% 
   select(-method) %>% 
   gather(intervention_type, status, -paper_id) %>% 
+  # Transform intervention_type to factor here to keep ALL levels
   mutate(
     intervention_type = factor(intervention_type, 
                                levels = names(table(intervention_type)))
   ) %>% 
+  # Keep only the intervantions that actually appear in the papers
   filter(status == 1) %>% 
   select(-status) %>% 
+  # Transform intervention_type to factor here again, so its levels are in 
+  # decreasing order
   mutate(
     intervention_type = factor(
       intervention_type, 
@@ -244,6 +257,18 @@ ggplot(intervention_temp) +
 ```
 
 **Note:** We will need to check what the picture is when we group the different kinds of interventions together.
+
+Here are the individual values:
+
+```{r, echo = FALSE, results = "asis"}
+kable(
+  intervention_temp %>% 
+    group_by(intervention_type) %>% 
+    count(),
+  caption = "Intervention Usage",
+  col.names = c("Intervention", "Frequency")
+)
+```
 
 
 
@@ -262,23 +287,93 @@ participants_temp <- participants %>%
     diagnosis_type = factor(diagnosis_type, levels = c("ASD", "non-ASD"))
   ) %>% 
   filter(num_diagnosis > 0 | is.na(num_diagnosis)) %>% 
+  mutate(
+    diagnosis = factor(
+      diagnosis,
+      levels = names(sort(table(diagnosis), decreasing = TRUE))
+    )
+  ) %>% 
   arrange(paper_id, group_id)
+
+participants_mixed_index <- participants_temp %>%
+  group_by(paper_id, group_id) %>%
+  summarise(n_types = n_distinct(diagnosis_type)) %>%
+  filter(n_types > 1) %>%
+  select(paper_id, group_id) %>% 
+  mutate(diagnosis_mixed = 1)
+
+participants_temp <- participants_temp %>% 
+  left_join(participants_mixed_index, by = c("paper_id", "group_id")) %>% 
+  mutate(
+    diagnosis_type = ifelse(diagnosis_mixed == 1, "mixed", diagnosis_type),
+    diagnosis_type = ifelse(
+      diagnosis %in% c("ASD", "HFA", "MFA", "LFA", "PDD", "severe") & 
+        is.na(diagnosis_mixed), 
+      "ASD", 
+      ifelse(
+        diagnosis %in% c("TD", "ID", "dyslexia", "ADHD", "other") & 
+          is.na(diagnosis_mixed), 
+        "non-ASD", 
+        diagnosis_type
+      )
+    ), 
+    diagnosis_type = factor(
+      diagnosis_type, 
+      levels = names(sort(table(diagnosis_type), 
+                          decreasing = TRUE))
+    )
+  )
 
 participants_diagnosis <- participants_temp %>% 
   select(paper_id, group_id, diagnosis_type, diagnosis, num_diagnosis)
+
+participants_diagnosis_type <- participants_temp %>% 
+  group_by(paper_id, group_id) %>% 
+  select(paper_id, group_id, diagnosis, diagnosis_type, diagnosis_mixed) %>% 
+  distinct(.keep_all = TRUE) %>% 
+  select(-diagnosis, -diagnosis_mixed)
 
 participants_info <- participants %>% 
   select(paper_id, group_id, male:recruitment)
 ```
 
-Let's have a look at the number of the participants' groups (identified as paper_id/group_id) that include autistic people, comared to the groups that only have non-autistic people.
+Let's check what is the most common diagnosis among the participants of the studies in the papers we have included in our overview study.
 
 ```{r}
-participants_diagnosis %>% 
-  group_by(paper_id, group_id) %>% 
-  ggplot() + 
+ggplot(participants_diagnosis) +
+  geom_bar(aes(diagnosis)) +
+  scale_x_discrete(drop = FALSE)
+```
+
+And here are the values:
+
+```{r, echo = FALSE, results = "asis"}
+kable(
+  participants_diagnosis %>% 
+    group_by(diagnosis) %>% 
+    count(),
+  caption = "Most Common Diagnoses for Study Participants",
+  col.names = c("Diagnosis", "Frequency")
+)
+```
+
+We are also interested in have a look at the number of the participants' groups (identified as paper_id/group_id) that include autistic participants, comared to the groups that only have non-autistic participants.
+
+```{r}
+ggplot(participants_diagnosis_type) +
   geom_bar(aes(diagnosis_type))
 ```
+
+```{r, echo = FALSE, results = "asis"}
+kable(
+  participants_diagnosis_type %>% 
+    group_by(diagnosis_type) %>% 
+    count(),
+  caption = "Diagnosis Types",
+  col.names = c("Diagnosis Type", "Frequency")
+)
+```
+
 
 Note that some of the groups have both autistic and non-autistic participants. Therefore, the counts in the graph above don't add up to the number of groups we have, since we count those separately.
 
