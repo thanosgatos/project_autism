@@ -307,4 +307,4 @@ technique <- technique %>%
       labels = c("one-shot", "longitudinal")
     )
   ) %>%
-  select(-c(technique_name, material, notes))
+  select(-c(technique_name, material, pre_assess, post_assess, notes))

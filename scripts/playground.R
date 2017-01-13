@@ -53,6 +53,16 @@ q1_inter_technique <- technique %>%
   select(-status) %>%
   arrange(paper_id, study_id, technique_id, group_id)
 
+technique_groups <- technique %>%
+  select(paper_id, study_id, technique_id, technique_type, group1, group2,
+         group3, group4, group5, group6, group7) %>%
+  gather(group_id, status, -paper_id, -study_id, -technique_id,
+         -technique_type) %>%
+  filter(status == 1) %>%
+  mutate(group_id = parse_number(group_id)) %>%
+  select(-status) %>%
+  arrange(paper_id, study_id, technique_id, group_id)
+
 
 # %>%
 #   group_by(paper_id, study_id, technique_id) %>%

@@ -69,6 +69,35 @@ View(
     )
 )
 
+# Check: Groups with no participants?
+participants %>%
+  group_by(paper_id, group_id) %>%
+  filter(ASD == 0 & HFA == 0 & MFA == 0 & LFA == 0 & severe == 0 & TD == 0 &
+           PDD == 0 & ID == 0 & dyslexia == 0 & ADHD == 0 & other == 0)
+## IEEE3 -- We should check this paper again!
+
+
+
+participants %>%
+  group_by(paper_id, group_id) %>%
+  filter(paper_id == "IEEE3")
+
+x <- participants_temp %>%
+  group_by(paper_id, group_id) %>%
+  summarise(
+    n_diag = n_distinct(diagnosis),
+    n_type = n_distinct(diagnosis_type)
+  )
+
+y <- participants %>%
+  filter(!(paper_id == "IEEE3" & (group_id == 2 | group_id == 3))) %>%
+  select(ASD:other) %>%
+  mutate_all(funs(if_else(. > 0 | is.na(.), 1, 0))) %>%
+  rowSums()
+
+which(y != x$n_diag)
+
+
 #creating a mixed diagnosis_type
 participants_temp %>%
   left_join(participants_mixed_index, by = c("paper_id", "group_id"))
@@ -144,11 +173,6 @@ table(z$diagnosis_type)
 # Should add up to the number of distinct paper/group_id
 participants %>% distinct() %>% nrow()
 
-# Check: Groups with no participants?
-participants %>%
-  filter(ASD == 0 & HFA == 0 & MFA == 0 & LFA == 0 & severe == 0 & TD == 0 &
-           PDD == 0 & ID == 0 & dyslexia == 0 & ADHD == 0 & other == 0)
-## IEEE3 -- We should check this paper again!
 
 w <- participants_diagnosis %>%
   group_by(paper_id, group_id)
@@ -312,3 +336,167 @@ which(x == 0)
 View(intervention[which(x == 0), ])
 ## All, apart from IEEE3, have method = 1. IEEE3 has ALL zeros. Corrected!
 
+
+
+#------------------------------------------------------------------------------#
+
+#--- technique ---#
+
+technique %>%
+  select(paper_id, study_id, technique_id, other, other_role1, other_role2) %>%
+  gather(role_id, other_role, other:other_role2)
+
+View(
+  technique %>%
+    arrange(paper_id, study_id, technique_id) %>%
+    gather(group_id, status, c(group1, group2, group3, group4, group5, group6,
+                               group7))
+)
+## Cannot use this for the whole table -> roles etc are only in the 1st row for
+## each paper/study/technique
+
+
+technique %>%
+  select(paper_id, study_id, technique_id, technique_type, group1, group2,
+         group3, group4, group5, group6, group7) %>%
+  gather(group_id, status, -paper_id, -study_id, -technique_id,
+         -technique_type) %>%
+  filter(status == 1) %>%
+  mutate(group_id = parse_number(group_id)) %>%
+  select(-status) %>%
+  arrange(paper_id, study_id, technique_id, group_id)
+
+
+# Q1
+
+caregivers <- c("teacher", "therapist", "caregiver", "parent", "aut_exp",
+                "virtual")
+
+
+technique %>%
+  filter(res1 == 0 & res2 == 0) %>%
+  select(
+    paper_id, study_id, technique_id, contains("teacher_role"),
+    contains("therapist_role"), contains("caregiver_role"),
+    contains("parent_role"), contains("aut_exp_role"), contains("virtual_role")
+  ) %>%
+  gather(actor, role, -c(paper_id, study_id, technique_id)) %>%
+  filter(!is.na(role)) %>%
+  mutate(
+    actor = str_sub(actor, 1, -7),
+    actor = factor(actor, levels = names(sort(table(actor), decreasing = TRUE))),
+    role = factor(role, levels = names(sort(table(role), decreasing = TRUE)))
+  ) %>%
+  arrange(paper_id, study_id, technique_id)
+
+
+
+
+technique %>%
+  filter(res1 == 0 & res2 == 0) %>%
+  select(
+    contains("teacher_role"),
+    contains("therapist_role"), contains("caregiver_role"),
+    contains("parent_role"), contains("aut_exp_role"), contains("virtual_role")
+  ) %>%
+  is.na() %>%
+  colSums()
+
+
+
+
+View(
+  technique %>%
+    filter(res1 == 0 & res2 == 0) %>%
+    select(
+      paper_id, study_id, technique_id, contains("teacher_role"),
+      contains("therapist_role"), contains("caregiver_role"),
+      contains("parent_role"), contains("aut_exp_role"), contains("virtual_role")
+    ) %>%
+    gather(actor, role, -c(paper_id, study_id, technique_id)) %>%
+    filter(!is.na(role)) %>%
+    mutate(
+      actor = str_sub(actor, 1, -7)
+    )
+)
+
+# Q2
+
+technique %>%
+  mutate(
+    place_type = ifelse(
+      place %in% c("autism school", "autism center", "home", "familiar setting"),
+      "familiar setting",
+      ifelse(
+        place %in% c("unfamiliar setting", "research lab"),
+        "unfamiliar setting",
+        ifelse(
+          place %in% c("mixture", "other"),
+          "mixture",
+          NA
+        )
+      )
+    ),
+    place_type = fct_explicit_na(
+      factor(place_type, levels = names(sort(table(place_type),
+                                             decreasing = TRUE)))
+    )
+  )
+
+
+View(
+  technique %>%
+    mutate(
+      place_type = ifelse(
+        place %in% c("autism school", "autism center", "home", "familiar setting"),
+        "familiar setting",
+        ifelse(
+          place %in% c("unfamiliar setting", "research lab"),
+          "unfamiliar setting",
+          ifelse(
+            place %in% c("mixture", "other"),
+            "mixture",
+            NA
+          )
+        )
+      ),
+      place_type = fct_explicit_na(
+        factor(place_type, levels = names(sort(table(place_type),
+                                               decreasing = TRUE))),
+        na_level = "not specified"
+      )
+    ) %>%
+    select(paper_id, study_id, technique_id, place, place_type)
+)
+
+
+
+technique %>%
+  select(paper_id, study_id, technique_id, technique_type, technique_phase,
+         group1, group2, group3, group4, group5, group6, group7) %>%
+  gather(group_id, status, -paper_id, -study_id, -technique_id,
+         -technique_type, -technique_phase) %>%
+  filter(status == 1) %>%
+  mutate(group_id = parse_number(group_id)) %>%
+  select(-status) %>%
+  arrange(paper_id, study_id, technique_id, group_id)
+
+z <- technique_asd %>%
+  group_by(paper_id, group_id) %>%
+  summarise(num_tech = n_distinct(technique_id))
+
+q <- technique_asd %>%
+  group_by(paper_id, group_id) %>%
+  summarise(num_tech = n_distinct(technique_id) * n_distinct(study_id))
+
+
+# How many time each technique appears
+technique %>%
+  group_by(technique_phase) %>%
+  count() %>%
+  arrange(-n)
+
+technique_asd %>%
+  group_by(technique_phase) %>%
+  count() %>%
+  arrange(-n)

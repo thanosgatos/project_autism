@@ -311,10 +311,14 @@ participants_temp <- participants_temp %>%
         is.na(diagnosis_mixed), 
       "ASD", 
       ifelse(
-        diagnosis %in% c("TD", "ID", "dyslexia", "ADHD", "other") & 
+        diagnosis %in% c("ID", "dyslexia", "ADHD", "other") & 
           is.na(diagnosis_mixed), 
         "non-ASD", 
-        diagnosis_type
+        ifelse(
+          diagnosis == "TD" & is.na(diagnosis_mixed),
+          "typically diagnosed",
+          diagnosis_type
+        )
       )
     ), 
     diagnosis_type = factor(
@@ -361,14 +365,17 @@ We are also interested in have a look at the number of the participants' groups 
 
 ```{r}
 ggplot(participants_diagnosis_type) +
-  geom_bar(aes(diagnosis_type))
+  geom_bar(aes(factor(diagnosis_type, 
+                      levels = names(sort(table(diagnosis_type), 
+                                          decreasing = TRUE)))))
 ```
 
 ```{r, echo = FALSE, results = "asis"}
 kable(
   participants_diagnosis_type %>% 
     group_by(diagnosis_type) %>% 
-    count(),
+    count() %>% 
+    arrange(-n),
   caption = "Diagnosis Types",
   col.names = c("Diagnosis Type", "Frequency")
 )
@@ -376,6 +383,8 @@ kable(
 
 
 Note that some of the groups have both autistic and non-autistic participants. Therefore, the counts in the graph above don't add up to the number of groups we have, since we count those separately.
+
+
 
 # Platform
 
@@ -403,7 +412,151 @@ ggplot(platform_temp) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
+Here are the actual values:
+
+```{r, echo = FALSE, results = "asis"}
+kable(
+  platform_temp %>% 
+    group_by(platform_type) %>% 
+    count(),
+  caption = "Platform Usage Frequency",
+  col.names = c("Platform", "Frequency")
+)
+```
+
 
 
 # Technique
+
+Moving on to our most important table that describes the techniques used in the studies included in our overview. We will approach this table by answering some more specific questions.
+
+## What are the roles of the *caregivers*, when a particular technique does not involve researchers?
+
+**Note:** A specific technique is identified by paper/study/technique_id.
+
+**Caregivers:** 
+
+* teachers
+* therapists
+* caregivers
+* parents 
+* aut_exp
+* virtual
+
+```{r}
+no_researcher_roles <- technique %>% 
+  filter(res1 == 0 & res2 == 0) %>% 
+  select(
+    paper_id, study_id, technique_id, contains("teacher_role"), 
+    contains("therapist_role"), contains("caregiver_role"), 
+    contains("parent_role"), contains("aut_exp_role"), contains("virtual_role")
+  ) %>% 
+  gather(actor, role, -c(paper_id, study_id, technique_id)) %>% 
+  filter(!is.na(role)) %>% 
+  mutate(
+    actor = str_sub(actor, 1, -7),
+    actor = factor(actor, levels = names(sort(table(actor), decreasing = TRUE))),
+    role = factor(role, levels = names(sort(table(role), decreasing = TRUE)))
+  ) %>% 
+  arrange(paper_id, study_id, technique_id)
+
+ggplot(no_researcher_roles) +
+  geom_bar(aes(role)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplot(no_researcher_roles) +
+  geom_bar(aes(role)) +
+  facet_wrap(~ actor, nrow = 2) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+```
+
+```{r}
+kable(
+  no_researcher_roles %>% 
+    group_by(role) %>% 
+    count(), 
+  caption = "Roles of actors in studies that don't involve researchers",
+  col.names = c("Role", "Frequency")
+)
+```
+
+
+## What is the relationship among technique type, technique phase and ASD participants?
+
+First, we need to find the paper/groups with ASD participants.
+
+```{r}
+groups_asd <- participants_temp %>% 
+  filter(diagnosis_type == "ASD" | diagnosis_type == "mixed") %>% 
+  select(paper_id, group_id, diagnosis, diagnosis_type)
+
+technique_groups <- technique %>%
+  select(paper_id, study_id, technique_id, technique_type, technique_phase, 
+         group1, group2, group3, group4, group5, group6, group7) %>%
+  gather(group_id, status, -paper_id, -study_id, -technique_id,
+         -technique_type, -technique_phase) %>%
+  filter(status == 1) %>%
+  mutate(group_id = parse_number(group_id)) %>%
+  select(-status) %>%
+  arrange(paper_id, study_id, technique_id, group_id)
+
+technique_asd <- technique_groups %>% 
+  semi_join(groups_asd, by = c("paper_id", "group_id"))
+```
+
+Here are the most common techniques used at each phase:
+
+```{r}
+ggplot(technique_asd) +
+  geom_bar(aes(factor(technique_type, 
+                      levels = names(sort(table(technique_type), 
+                                          decreasing = TRUE))))) +
+  facet_wrap(~ technique_phase) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+And here we see in which phase is each technique used the most:
+
+```{r}
+ggplot(technique_asd) +
+  geom_bar(aes(technique_phase)) +
+  facet_wrap(~ technique_type) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+```{r}
+technique %>% 
+  select(paper_id, study_id, technique_id, technique_type, technique_phase)
+```
+
+
+
+We want to create an additional variable for the type of place where a study is conducted.
+
+```{r}
+technique_temp <- technique %>% 
+    mutate(
+      place_type = ifelse(
+        place %in% c("autism school", "autism center", "home", "familiar setting"),
+        "familiar setting",
+        ifelse(
+          place %in% c("unfamiliar setting", "research lab"),
+          "unfamiliar setting",
+          ifelse(
+            place %in% c("mixture", "other"),
+            "mixture",
+            NA
+          )
+        )
+      ),
+      place_type = fct_explicit_na(
+        factor(place_type, levels = names(sort(table(place_type), 
+                                               decreasing = TRUE))),
+        na_level = "not specified"
+      )
+    )
+```
 
