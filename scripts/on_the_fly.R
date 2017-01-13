@@ -566,7 +566,12 @@ technique_groups %>%
 ## Check these 4 paper/group combos -> there shouldn't be ANY here.
 
 technique_groups %>%
+  semi_join(participants_diagnosis_type, by = c("paper_id", "group_id"))
+
+technique_groups %>%
   right_join(participants_diagnosis_type, by = c("paper_id", "group_id"))
+## the semi_join and the right_join should give the same results
+
 
 View(
   technique_groups %>%
@@ -596,3 +601,13 @@ View(
     select(paper_id, study_id, technique_id, technique_type,
            one_of(sprintf("group%d_role", 1:7)))
 )
+
+
+View(
+  participants_age %>%
+    select(paper_id, group_id, age_to_split, age)
+)
+
+participants_age %>%
+  select(paper_id, group_id, age_to_split, age) %>%
+  group_by(paper_id, group_id)
