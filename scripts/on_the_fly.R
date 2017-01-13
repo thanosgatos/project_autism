@@ -500,3 +500,99 @@ technique_asd %>%
   group_by(technique_phase) %>%
   count() %>%
   arrange(-n)
+
+
+# Q4
+
+technique_temp %>%
+  filter(place_type == "unfamiliar setting") %>%
+  select(paper_id, study_id, technique_id, familiarization_person,
+         familiarization_environment) %>%
+  mutate(
+    familiarization = ifelse(
+      familiarization_person == 1 | familiarization_environment == 1,
+      1,
+      0
+    )
+  ) %>%
+  select(-familiarization_person, -familiarization_environment)
+
+sum(familiarization$familiarization) / nrow(familiarization)
+
+View(
+  technique_temp %>%
+    filter(place_type == "unfamiliar setting") %>%
+    select(paper_id, study_id, technique_id, familiarization_person,
+           familiarization_environment) %>%
+    mutate(
+      familiarization = ifelse(
+        familiarization_person == 1 | familiarization_environment == 1,
+        1,
+        0
+      )
+    )
+)
+
+
+
+# Q7
+
+ggplot(technique) +
+  geom_bar(aes(factor(
+    technique_type,
+    levels = names(sort(table(technique_type), decreasing = TRUE))
+  ))) +
+  facet_wrap(~ time) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Q techniques without participants
+technique %>%
+  filter(group1 == 0 & group2 == 0 & group3 == 0 & group4 == 0 & group5 == 0 &
+           group6 == 0 & group7 == 0) %>%
+  select(-contains("group"))
+
+
+View(
+  technique %>%
+    filter(group1 == 0 & group2 == 0 & group3 == 0 & group4 == 0 & group5 == 0 &
+             group6 == 0 & group7 == 0)
+)
+
+
+# Q9a
+
+technique_groups %>%
+  anti_join(participants_diagnosis_type, by = c("paper_id", "group_id"))
+## Check these 4 paper/group combos -> there shouldn't be ANY here.
+
+technique_groups %>%
+  right_join(participants_diagnosis_type, by = c("paper_id", "group_id"))
+
+View(
+  technique_groups %>%
+    right_join(participants_diagnosis_type, by = c("paper_id", "group_id"))
+)
+
+# Q9b
+
+tech_group_asd <- tech_group_temp %>%
+  filter(diagnosis_type == "ASD")
+
+technique %>%
+  semi_join(tech_group_asd, by = c("paper_id", "study_id", "technique_id")) %>%
+  select(paper_id, study_id, technique_id, technique_type,
+         one_of(sprintf("group%d_role", 1:7))) %>%
+  gather(group_id, role, group1_role:group7_role) %>%
+  mutate(
+    group_id = parse_number(group_id),
+    role = factor(role, levels = names(table(role)))
+  ) %>%
+  arrange(paper_id, study_id, technique_id, group_id) %>%
+  filter(!is.na(role))
+
+View(
+  technique %>%
+    semi_join(tech_group_asd, by = c("paper_id", "study_id", "technique_id")) %>%
+    select(paper_id, study_id, technique_id, technique_type,
+           one_of(sprintf("group%d_role", 1:7)))
+)

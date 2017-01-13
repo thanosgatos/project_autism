@@ -7,13 +7,13 @@ output: html_notebook
 knitr::opts_chunk$set(message = FALSE)
 ```
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, message = FALSE}
 # Loading necessary packages
 library(tidyverse)
+library(googlesheets)
 library(stringr)
 library(forcats)
 library(knitr)
-# library(DT)
 
 # Setting global options
 options(digits = 4)
@@ -22,6 +22,7 @@ options(digits = 4)
 **Note:** In case you're not interested in the code written for the analysis, feel free to use the "Code" drop-down menu in the top-right corner and select "Hide All Code". Furthermore, the code used to produce the tables is not displayed by default (set by us).
 
 Let's start by getting some first understanding of our data. We will look at each of our tables, one by one, and get some very basic statistics from them, mailnly what is being used/done most frequently in the papers included in the study.
+
 
 # Data Collection
 
@@ -282,9 +283,18 @@ participants_temp <- participants %>%
     diagnosis_type = ifelse(
       diagnosis %in% c("ASD", "HFA", "MFA", "LFA", "PDD", "severe"),
       "ASD",
-      "non-ASD"
+      ifelse(
+        diagnosis %in% c("ID", "dyslexia", "ADHD", "other"), 
+        "non-ASD", 
+        ifelse(
+          diagnosis == "TD",
+          "typically developed",
+          "unknown"
+        )
+      )
     ),
-    diagnosis_type = factor(diagnosis_type, levels = c("ASD", "non-ASD"))
+    diagnosis_type = factor(diagnosis_type, 
+                            levels = names(table(diagnosis_type)))
   ) %>% 
   filter(num_diagnosis > 0 | is.na(num_diagnosis)) %>% 
   mutate(
@@ -316,7 +326,7 @@ participants_temp <- participants_temp %>%
         "non-ASD", 
         ifelse(
           diagnosis == "TD" & is.na(diagnosis_mixed),
-          "typically diagnosed",
+          "typically developed",
           diagnosis_type
         )
       )
@@ -526,13 +536,12 @@ ggplot(technique_asd) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
+## Are autistic people familiarized with the environment in which the study is conducted, when the study environment is unfamiliar to them?
 
-```{r}
-technique %>% 
-  select(paper_id, study_id, technique_id, technique_type, technique_phase)
-```
+**Unfamiliar setting:** By *unfamiliar setting* we refer to one of the following:
 
-
+* unfamiliar setting
+* research lab
 
 We want to create an additional variable for the type of place where a study is conducted.
 
@@ -558,5 +567,196 @@ technique_temp <- technique %>%
         na_level = "not specified"
       )
     )
+
+familiarization <- technique_temp %>%
+  filter(place_type == "unfamiliar setting") %>% 
+  select(paper_id, study_id, technique_id, familiarization_person, 
+         familiarization_environment) %>% 
+  mutate(
+    familiarization = ifelse(
+      familiarization_person == 1 | familiarization_environment == 1,
+      1,
+      0
+    )
+  ) %>% 
+  select(-familiarization_person, -familiarization_environment)
+```
+
+
+```{r}
+kable(
+  familiarization, 
+  caption = "Familiarization of autistics with unfamiliar study settings",
+  col.names = c("Paper ID", "Study ID", "Technique ID", "Familiarization")
+)
+```
+
+
+
+As we can see from the table above, out of the `r nrow(familiarization)` substudies (paper/study/technique) conducted in unfamiliar settings, only `r sum(familiarization$familiarization)`, i.e. `r round(sum(familiarization$familiarization) / nrow(familiarization) * 100, digits = 2)`% of the substudies, have the autistic people been familiarized with the environment of the study in any way.
+
+## Which technique types are used as one-shot and which ones as longitudinal?
+
+```{r}
+ggplot(technique) +
+  geom_bar(aes(factor(
+    technique_type, 
+    levels = names(sort(table(technique_type), decreasing = TRUE))
+  ))) +
+  facet_wrap(~ time) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r}
+kable(
+  technique %>% 
+  group_by(time) %>% 
+  count()
+)
+```
+
+```{r}
+kable(
+  technique %>% 
+    group_by(technique_type, time) %>% 
+    count()
+)
+```
+
+## Which technique types and in which phases are used without participants?
+
+```{r}
+technique_no_participants <- technique %>% 
+  filter(group1 == 0 & group2 == 0 & group3 == 0 & group4 == 0 & group5 == 0 &
+           group6 == 0 & group7 == 0) %>% 
+  select(-contains("group"))
+
+ggplot(technique_no_participants) + 
+  geom_bar(aes(factor(technique_type, 
+                      levels = names(sort(table(technique_type),
+                                          decreasing = TRUE))))) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+And the actual numbers of the techniques used are:
+
+```{r}
+kable(
+  technique_no_participants %>% 
+    group_by(technique_type) %>% 
+    count() %>% 
+    arrange(-n)
+)
+```
+
+The total number of techniques that have no participants is `r nrow(technique_no_participants)`.
+
+Let's now see what phases these substudies happen in.
+
+```{r}
+ggplot(technique_no_participants) + 
+  geom_bar(aes(factor(technique_phase, 
+                      levels = names(table(technique_phase))))) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+Here are the numbers of phases:
+
+```{r}
+kable(
+  technique_no_participants %>% 
+    group_by(technique_phase) %>% 
+    count()
+)
+```
+
+```{r}
+ggplot(technique_no_participants) +
+  geom_bar(aes(factor(technique_type, 
+                      levels = names(sort(table(technique_type),
+                                          decreasing = TRUE))))) +
+  facet_wrap(~ technique_phase) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  
+```
+
+Here are the first two techniques for each phase:
+
+```{r}
+kable(
+  technique_no_participants %>% 
+    group_by(technique_phase, technique_type) %>% 
+    count() %>% 
+    ungroup() %>% 
+    group_by(technique_phase) %>% 
+    arrange(-n) %>% 
+    slice(1:2)
+)
+```
+
+## Which techniques are used for each diagnosis type, i.e. for each type of group?
+
+```{r}
+# Find the paper/study/technique combos for each paper/group combo
+tech_group_temp <- technique_groups %>% 
+  right_join(participants_diagnosis_type, by = c("paper_id", "group_id"))
+
+ggplot(tech_group_temp) +
+  geom_bar(aes(factor(technique_type, 
+                      levels = names(sort(table(technique_type),
+                                          decreasing = TRUE))))) +
+  facet_wrap(~ diagnosis_type) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r}
+kable(
+  tech_group_temp %>% 
+    group_by(diagnosis_type, technique_type) %>% 
+    count() %>% 
+    arrange(diagnosis_type, -n)
+)
+```
+
+
+## Which techniques are used with the different roles that ASD participants are recuired to have?
+
+```{r}
+tech_group_asd <- tech_group_temp %>% 
+  filter(diagnosis_type == "ASD")
+
+tech_role_asd <- technique %>% 
+  semi_join(tech_group_asd, by = c("paper_id", "study_id", "technique_id")) %>% 
+  select(paper_id, study_id, technique_id, technique_type, 
+         one_of(sprintf("group%d_role", 1:7))) %>% 
+  gather(group_id, role, group1_role:group7_role) %>% 
+  mutate(
+    group_id = parse_number(group_id),
+    role = factor(role, levels = names(table(role)))
+  ) %>% 
+  arrange(paper_id, study_id, technique_id, group_id) %>% 
+  filter(!is.na(role)) %>% 
+  mutate(role = factor(role, 
+                       levels = names(sort(table(role), decreasing = TRUE))))
+```
+
+```{r}
+ggplot(tech_role_asd) +
+  geom_bar(aes(factor(technique_type, 
+                      levels = names(sort(table(technique_type),
+                                          decreasing = TRUE))))) +
+  facet_wrap(~ role) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+And here are the actual values:
+
+```{r}
+kable(
+  tech_role_asd %>% 
+    group_by(role, technique_type) %>% 
+    count() %>% 
+    arrange(role, -n)
+)
 ```
 

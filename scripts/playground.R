@@ -119,8 +119,8 @@ participants_test <- participants %>%
 
 #------------------------------------------------------------------------------#
 
-# bibliography <- gs_read(ss = analysis_sheet, ws = "bibliography", skip = 1,
-#                         col_names = TRUE, n_max = 154)
+bibliography <- gs_read(ss = analysis_sheet, ws = "bibliography", skip = 1,
+                        col_names = TRUE, n_max = 154)
 
 data_collection <- gs_read(ss = analysis_sheet, ws = "data_collection", skip = 1,
                            col_names = TRUE, n_max = 247)
