@@ -16,7 +16,7 @@ worksheet_names_kept <- worksheet_names[!worksheet_names %in%
 for (ws in worksheet_names_kept) {
   assign(sprintf("%s", ws),
          gs_read(ss = analysis_sheet, ws = sprintf("%s", ws), skip = 1,
-                 col_names = TRUE, n_max = 50))
+                 col_names = TRUE))
   # Add a delay between calls to the API to avoid an error - 6 sec and up
   # (https://github.com/jennybc/googlesheets/issues/214)
   Sys.sleep(6)

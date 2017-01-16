@@ -14,6 +14,8 @@ library(googlesheets)
 library(stringr)
 library(forcats)
 library(knitr)
+library(VennDiagram)
+library(scales)
 
 # Setting global options
 options(digits = 4)
@@ -251,11 +253,24 @@ intervention_temp <- intervention %>%
   ) %>% 
   arrange(paper_id)
 
+
+```
+
+```{r}
 ggplot(intervention_temp) +
   geom_bar(aes(intervention_type)) +
   scale_x_discrete(drop = FALSE) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
+
+```{r}
+ggplot(intervention_temp) +
+  geom_bar(aes(intervention_type, ..prop.., group = 1)) +
+  scale_x_discrete(drop = FALSE) +
+  scale_y_continuous(labels = percent) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
 
 **Note:** We will need to check what the picture is when we group the different kinds of interventions together.
 
@@ -265,15 +280,193 @@ Here are the individual values:
 kable(
   intervention_temp %>% 
     group_by(intervention_type) %>% 
-    count(),
-  caption = "Intervention Usage",
-  col.names = c("Intervention", "Frequency")
+    summarize(n = n()) %>% 
+    mutate(percentage = percent(n / sum(n)))
 )
 ```
 
 
 
 # Participants
+
+We need to create an age variable.
+
+```{r}
+participants_age <- participants %>%
+  mutate(
+    age1 = ifelse(
+      age_min <= 4 & age_max <= 4,
+      "1",
+      ifelse(
+        age_min <= 4 & (age_max >= 5 & age_max <= 12),
+        "1;2",
+        ifelse(
+          age_min <= 4 & (age_max >= 13 & age_max <= 19),
+          "1;2;3",
+          ifelse(
+            age_min <= 4 & age_max >= 20,
+            "1;2;3;4",
+            ifelse(
+              (age_min >= 5 & age_min <= 12) & (age_max >= 5 & age_max <= 12),
+              "2",
+              ifelse(
+                (age_min >= 5 & age_min <= 12) &
+                  (age_max >= 13 & age_max <= 19),
+                "2;3",
+                ifelse(
+                  (age_min >= 5 & age_min <= 12) & age_max >= 20,
+                  "2;3;4",
+                  ifelse(
+                    (age_min >= 13 & age_min <= 19) &
+                      (age_max >= 13 & age_max <= 19),
+                    "3",
+                    ifelse(
+                      (age_min >= 13 & age_min <= 19) & age_max >= 20,
+                      "3;4",
+                      ifelse(
+                        age_min >= 20 & age_max >= 20,
+                        "4",
+                        ifelse(
+                          age_min > age_max,
+                          "AGE_RANGE_ERROR",
+                          ifelse(
+                            is.na(age_min) & is.na(age_max) &
+                              is.na(age_mean) & is.na(dev_stage),
+                            "missing",
+                            NA
+                          )
+                        )
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    ),
+    age2 = ifelse(
+      is.na(age_min) & is.na(age_max) & age_mean < 5,
+      "1",
+      ifelse(
+        is.na(age_min) & is.na(age_max) &
+          age_mean > 5 & age_mean < 13,
+        "2",
+        ifelse(
+          is.na(age_min) & is.na(age_max) &
+            age_mean > 13 & age_mean < 20,
+          "3",
+          ifelse(
+            is.na(age_min) & is.na(age_max) &
+              age_mean > 20,
+            "4",
+            ifelse(
+              is.na(age_min) & is.na(age_max) &
+                is.na(age_mean) & is.na(dev_stage),
+              "missing",
+              NA
+            )
+          )
+        )
+      )
+    ),
+    age3 = ifelse(
+      is.na(age_min) & is.na(age_max) &
+        is.na(age_mean) &
+        dev_stage %in% c("infant", "toddler",
+                         "preschooler"),
+      "1",
+      ifelse(
+        is.na(age_min) & is.na(age_max) &
+          is.na(age_mean) &
+          dev_stage == "child",
+        "2",
+        ifelse(
+          is.na(age_min) & is.na(age_max) &
+            is.na(age_mean) &
+            dev_stage == "adolescent",
+          "3",
+          ifelse(
+            is.na(age_min) & is.na(age_max) &
+              is.na(age_mean) &
+              dev_stage %in% c("young adult",
+                               "adult",
+                               "middle age",
+                               "old age"),
+            "4",
+            ifelse(
+              is.na(age_min) & is.na(age_max) &
+                is.na(age_mean) & is.na(dev_stage),
+              "missing",
+              NA
+            )
+          )
+        )
+      )
+    ),
+    age_to_split = ifelse(
+      is.na(age1) & is.na(age2) & is.na(age3),
+      NA,
+      ifelse(
+        !is.na(age1),
+        age1,
+        ifelse(
+          !is.na(age2),
+          age2,
+          ifelse(
+            !is.na(age3),
+            age3,
+            "ERROR"
+          )
+        )
+      )
+    )
+  ) %>%
+  mutate(age = str_split(age_to_split, ";")) %>%
+  unnest(age) %>%
+  mutate(age = fct_explicit_na(factor(age, levels = 1:4,
+                                      labels = c("preschooler", "child",
+                                                 "adolescent", "adult")),
+                               na_level = "not specified")) %>% 
+  select(-c(age1, age2, age3, age_to_split, age_min, age_max, age_mean,
+            dev_stage))
+```
+
+
+## Which age category is used the most?
+
+```{r}
+ggplot(participants_age) +
+  geom_bar(aes(age))
+```
+
+As percentages:
+
+```{r}
+ggplot(participants_age) +
+  geom_bar(aes(age, ..prop.., group = 1)) +
+  scale_y_continuous(labels = percent)
+```
+
+
+And the values:
+
+```{r}
+kable(
+  participants_age %>% 
+  select(age) %>% 
+  group_by(age) %>% 
+  summarize(n = n()) %>% 
+  mutate(percentage = percent(n / sum(n)))
+)
+```
+
+## In which age categories are the ASD participants?
+
+**Moved to the end**
+
+
 
 ```{r}
 participants_temp <- participants %>% 
@@ -307,7 +500,7 @@ participants_temp <- participants %>%
 
 participants_mixed_index <- participants_temp %>%
   group_by(paper_id, group_id) %>%
-  summarise(n_types = n_distinct(diagnosis_type)) %>%
+  summarize(n_types = n_distinct(diagnosis_type)) %>%
   filter(n_types > 1) %>%
   select(paper_id, group_id) %>% 
   mutate(diagnosis_mixed = 1)
@@ -512,6 +705,16 @@ technique_groups <- technique %>%
   select(-status) %>%
   arrange(paper_id, study_id, technique_id, group_id)
 
+technique_actors <- technique %>%
+  select(paper_id, study_id, technique_id, technique_type, res1, res2, teacher,
+         caregiver, parent, therapist, aut_exp, designer, HCI_exp, virtual, 
+         other) %>%
+  gather(actor_type, status, -paper_id, -study_id, -technique_id,
+         -technique_type) %>%
+  filter(status > 0 | is.na(status)) %>%
+  select(-status) %>%
+  arrange(paper_id, study_id, technique_id)
+
 technique_asd <- technique_groups %>% 
   semi_join(groups_asd, by = c("paper_id", "group_id"))
 ```
@@ -535,6 +738,30 @@ ggplot(technique_asd) +
   facet_wrap(~ technique_type) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
+
+## What are the techniques used with participants with ASD diagnosis type?
+
+```{r}
+ggplot(technique_asd) +
+  geom_bar(aes(factor(technique_type, 
+                      levels = names(sort(table(technique_type), 
+                                          decreasing = TRUE))))) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+And the values:
+
+```{r}
+kable(
+  technique_asd %>% 
+    group_by(technique_type) %>% 
+    count() %>% 
+    arrange(-n)
+)
+```
+
+
+
 
 ## Are autistic people familiarized with the environment in which the study is conducted, when the study environment is unfamiliar to them?
 
@@ -723,7 +950,7 @@ kable(
 
 ```{r}
 tech_group_asd <- tech_group_temp %>% 
-  filter(diagnosis_type == "ASD")
+  filter(diagnosis_type == "ASD" | diagnosis_type == "mixed")
 
 tech_role_asd <- technique %>% 
   semi_join(tech_group_asd, by = c("paper_id", "study_id", "technique_id")) %>% 
@@ -760,3 +987,88 @@ kable(
 )
 ```
 
+
+## How many techniques involve each diagnosis type of groups?
+
+```{r}
+ggplot(tech_group_temp) +
+  geom_bar(aes(factor(diagnosis_type, 
+                      levels = names(sort(table(diagnosis_type), 
+                                          decreasing = TRUE)))))
+```
+
+```{r}
+ggplot(tech_group_temp) +
+  geom_bar(aes(factor(diagnosis_type, 
+                      levels = names(sort(table(diagnosis_type), 
+                                          decreasing = TRUE))),
+               ..prop..,
+              group = 1)) +
+  scale_y_continuous(labels = percent)
+```
+
+```{r}
+kable(
+  tech_group_temp %>% 
+    group_by(paper_id, study_id, technique_id) %>% 
+    distinct(.keep_all = TRUE) %>% 
+    ungroup() %>% 
+    group_by(diagnosis_type) %>% 
+    summarize(n = n()) %>% 
+    mutate(
+      percentage_participants = percent(n / sum(n)),
+      percentage_total = percent(n / nrow(technique))
+    ) %>% 
+    arrange(-n)
+)
+```
+
+
+## How many techniques involve actors?
+
+```{r}
+num_tech_actors <- technique_actors %>% 
+  group_by(paper_id, study_id, technique_id) %>% 
+  distinct() %>% 
+  nrow()
+
+num_tech_actors
+```
+
+And the percentage of the total number of techniques is `r percent(num_tech_actors / nrow(technique))`.
+
+## How many techniques involve both actors and ASD participants?
+
+
+
+## In which age categories are the ASD participants?
+
+```{r}
+participants_age_asd <- participants_age %>% 
+    semi_join(groups_asd, by = c("paper_id", "group_id")) %>% 
+    select(paper_id, group_id, male, female, age)
+```
+
+```{r}
+ggplot(participants_age_asd) +
+  geom_bar(aes(age))
+```
+
+And as percentages:
+
+```{r}
+ggplot(participants_age_asd) +
+  geom_bar(aes(age, ..prop.., group = 1)) +
+  scale_y_continuous(labels = percent)
+```
+
+Here are the actual values:
+
+```{r}
+kable(
+  participants_age_asd %>% 
+    group_by(age) %>% 
+    summarize(n = n()) %>% 
+    mutate(percentage = percent(n / sum(n)))
+)
+```

@@ -194,3 +194,26 @@ q1_answer %>%
   group_by(paper_id, study_id, technique_id, group_id) %>%
   filter(n() > 1)
 
+
+
+# # Use the for loop above in the final version
+# bibliography <- gs_read(ss = analysis_sheet, ws = "bibliography", skip = 1,
+#                         col_names = TRUE, n_max = 98)
+#
+# data_collection <- gs_read(ss = analysis_sheet, ws = "data_collection", skip = 1,
+#                            col_names = TRUE, n_max = 254)
+#
+# design <- gs_read(ss = analysis_sheet, ws = "design", skip = 1,
+#                   col_names = TRUE, n_max = 95)
+#
+# intervention <- gs_read(ss = analysis_sheet, ws = "intervention", skip = 1,
+#                         col_names = TRUE, n_max = 96)
+#
+# participants <- gs_read(ss = analysis_sheet, ws = "participants", skip = 1,
+#                         col_names = TRUE, n_max = 161)
+#
+# platform <- gs_read(ss = analysis_sheet, ws = "platform", skip = 1,
+#                     col_names = TRUE, n_max = 98)
+#
+# technique <- gs_read(ss = analysis_sheet, ws = "technique", skip = 1,
+#                      col_names = TRUE, n_max = 254)
