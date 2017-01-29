@@ -1,0 +1,212 @@
+---
+title: "Implications Analysis"
+output: 
+  html_notebook:
+    code_folding: hide
+---
+
+```{r include = FALSE}
+knitr::opts_chunk$set(message = FALSE)
+```
+
+```{r, echo = FALSE, message = FALSE}
+# Loading necessary packages
+library(knitr)
+library(tidyverse)
+library(googlesheets)
+library(stringr)
+library(forcats)
+library(scales)
+
+# Setting global options
+options(digits = 4)
+```
+
+First, we need to read in our data from Google Sheets.
+
+```{r, include = FALSE}
+sheet <- gs_title("implications_analysis")
+implications <- gs_read(ss = sheet, ws = "Sayfa2", col_names = TRUE) %>% 
+  select(year:subject, -general_term) %>% 
+  mutate(
+    study = factor(study, levels = c("D", "E", "ED"), 
+                   labels = c("Development", "Exploration", "DevExp")),
+    purpose = factor(purpose, levels = c("Ast", "Ent", "Int", "Res"),
+                     labels = c("Assistive", "Entertaining", "Intervention",
+                                "Research")),
+    intervention = str_split(intervention, ";"),
+    age_range = fct_explicit_na(
+      factor(age_range, 
+             levels = c("Pre", "Chi", "Ado", "Adu", "Eld"), 
+             labels = c("Preschooler", "Child", "Adolescent", "Adult", "Elderly"), 
+             ordered = TRUE),
+      na_level = "Not Specified"
+    ),
+    use_context = fct_explicit_na(
+      factor(use_context,
+             levels = c("Sch", "Hom", "Wor", "Out", "Cli", "Vir"),
+             labels = c("School", "Home", "Work", "Outdoor", "Clinical",
+                        "Virtual")),
+      na_level = "Not Specified"
+    ),
+    physical_platform = str_split(physical_platform, ";"),
+    interface = str_split(interface, ";"),
+    user1 = str_split(user1, ";"),
+    user2 = str_split(user2, ";"),
+    subject = factor(subject, levels = c("AS", "mid", "AI"), 
+                     labels = c("Autism Specific", "mid", "Autism Independent"))
+  ) %>% 
+  unnest(intervention, .drop = FALSE) %>% 
+  unnest(physical_platform, .drop = FALSE) %>% 
+  unnest(interface, .drop = FALSE) %>% 
+  unnest(user1, .drop = FALSE) %>% 
+  unnest(user2) 
+# %>% 
+  # mutate(intervention = fct_explicit_na(as.factor(intervention), 
+                                   # na_level = "not specified"))
+```
+
+
+# What physical platforms are used in each study type?
+
+```{r}
+ggplot(implications) +
+  geom_bar(aes(physical_platform)) +
+  facet_wrap(~ study, nrow = 3) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Have a look at the actual values.
+
+```{r}
+kable(
+  implications %>% 
+    group_by(study, physical_platform) %>% 
+    count() %>% 
+    arrange(study, -n)
+)
+```
+
+```{r}
+ggplot(implications) +
+  geom_bar(aes(physical_platform, fill = study)) +
+  # facet_wrap(~ study, nrow = 3) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+# What interfaces are used with each study type?
+
+```{r}
+ggplot(implications) +
+  geom_bar(aes(interface)) +
+  facet_wrap(~ study, nrow = 3) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Here are the counts:
+
+```{r}
+kable(
+  implications %>% 
+    group_by(study, interface) %>% 
+    count() %>% 
+    arrange(study, -n)
+)
+```
+
+```{r}
+ggplot(implications) +
+  geom_bar(aes(interface, fill = study)) +
+  # facet_wrap(~ study, nrow = 3) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+# What intervention points are used with each age group - purpose combination?
+
+```{r}
+ggplot(implications) +
+  geom_bar(aes(intervention, fill = age_range)) +
+  # scale_fill_grey() +
+  facet_wrap(~ purpose) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+# What intervention points are used with each age group?
+
+```{r}
+ggplot(implications) +
+  geom_bar(aes(factor(intervention, 
+                      levels = names(sort(table(intervention), 
+                                          decreasing = TRUE))))) +
+  facet_wrap(~ age_range, nrow = 5) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+```{r}
+ggplot(implications) +
+  geom_bar(aes(factor(intervention, 
+                      levels = names(sort(table(intervention), 
+                                          decreasing = TRUE))), 
+               fill = age_range)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Here are the actual counts:
+
+```{r}
+kable(
+  implications %>% 
+    group_by(age_range, intervention) %>% 
+    count() %>% 
+    arrange(age_range, -n)
+)
+```
+
+When we exclude the observations where the purpose is research, we have the following:
+
+```{r}
+implications %>% 
+  filter(purpose != "Research") %>% 
+  ggplot() +
+  geom_bar(aes(intervention, fill = age_range)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Or maybe:
+
+```{r}
+implications %>% 
+  filter(purpose != "Research") %>% 
+  ggplot() +
+  geom_bar(aes(age_range, fill = intervention)) +
+  # scale_fill_grey() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+
+# What interfaces are used with each platform?
+
+```{r}
+ggplot(implications) +
+  geom_bar(aes(interface, fill = physical_platform)) +
+  # scale_fill_grey() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8))
+```
+
+```{r}
+ggplot(implications) +
+  geom_bar(aes(interface, fill = physical_platform), position = "fill") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8))
+```
+
+
+```{r}
+ggplot(implications) +
+  geom_bar(aes(interface, fill = physical_platform), position = "dodge") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8))
+```
